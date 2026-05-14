@@ -1,4 +1,4 @@
-const CACHE_NAME = "salesforce-admin-practice-loop-v1";
+const CACHE_NAME = "salesforce-admin-practice-loop-v2";
 const ASSETS = [
   "./",
   "./index.html",

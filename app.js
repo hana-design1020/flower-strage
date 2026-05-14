@@ -42,6 +42,8 @@ const fallbackState = {
   selected: [],
   answered: {},
   bookmarks: {},
+  questionQueue: [],
+  questionQueueSignature: "",
   streak: 0,
   settings: {
     unansweredFirst: true,
@@ -118,7 +120,7 @@ function syncControls() {
   });
 }
 
-function buildVisibleQuestions() {
+function buildQuestionPool() {
   const start = Number(dom.rangeStart.value || state.settings.rangeStart || 1);
   const end = Number(dom.rangeEnd.value || state.settings.rangeEnd || 9999);
   const min = Math.min(start, end);
@@ -142,10 +144,61 @@ function buildVisibleQuestions() {
   if (state.settings.unansweredFirst) {
     const unanswered = pool.filter((question) => !getRecord(question));
     const answered = pool.filter((question) => getRecord(question));
-    return [...shuffle(unanswered), ...shuffle(answered)];
+    return [...unanswered, ...answered];
   }
 
-  return shuffle(pool);
+  return pool;
+}
+
+function queueSignature(pool) {
+  const ids = [...pool].sort(byNumber).map((question) => question.id);
+  return [
+    state.activeFilter,
+    state.settings.unansweredFirst ? "unanswered-first" : "balanced",
+    Number(dom.rangeStart.value || state.settings.rangeStart || 1),
+    Number(dom.rangeEnd.value || state.settings.rangeEnd || 9999),
+    ids.join("|")
+  ].join("::");
+}
+
+function queueIdsForPool(pool) {
+  if (state.settings.unansweredFirst) {
+    const unanswered = pool.filter((question) => !getRecord(question));
+    const answered = pool.filter((question) => getRecord(question));
+    return [...shuffle(unanswered), ...shuffle(answered)].map((question) => question.id);
+  }
+
+  return shuffle(pool).map((question) => question.id);
+}
+
+function rebuildQuestionQueue(pool) {
+  const ids = queueIdsForPool(pool);
+  if (current && ids.length > 1 && ids[0] === current.id) {
+    ids.push(ids.shift());
+  }
+
+  state.questionQueue = ids;
+  state.questionQueueSignature = queueSignature(pool);
+}
+
+function ensureQuestionQueue(pool) {
+  const signature = queueSignature(pool);
+  const validIds = new Set(pool.map((question) => question.id));
+
+  if (state.questionQueueSignature !== signature || !Array.isArray(state.questionQueue)) {
+    rebuildQuestionQueue(pool);
+    return;
+  }
+
+  state.questionQueue = state.questionQueue.filter((id) => validIds.has(id));
+
+  if (!state.questionQueue.length) {
+    rebuildQuestionQueue(pool);
+  }
+}
+
+function buildVisibleQuestions() {
+  return buildQuestionPool();
 }
 
 function setCurrent(question) {
@@ -160,6 +213,9 @@ function setCurrent(question) {
 
   current = question;
   state.currentId = question.id;
+  state.questionQueue = Array.isArray(state.questionQueue)
+    ? state.questionQueue.filter((id) => id !== question.id)
+    : [];
   state.selected = [];
   answerShown = false;
   explanationExpanded = false;
@@ -170,15 +226,17 @@ function setCurrent(question) {
 }
 
 function chooseNext() {
-  visibleQuestions = buildVisibleQuestions();
+  visibleQuestions = buildQuestionPool();
   if (!visibleQuestions.length) {
     setCurrent(null);
     return;
   }
 
-  const currentIndex = visibleQuestions.findIndex((question) => question.id === state.currentId);
-  const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % visibleQuestions.length : 0;
-  setCurrent(visibleQuestions[nextIndex]);
+  ensureQuestionQueue(visibleQuestions);
+
+  const nextId = state.questionQueue.shift();
+  const nextQuestion = visibleQuestions.find((question) => question.id === nextId) ?? visibleQuestions[0];
+  setCurrent(nextQuestion);
 }
 
 function arraysEqualAsSet(first, second) {
@@ -296,7 +354,20 @@ function renderQueue() {
   visibleQuestions = buildVisibleQuestions();
   dom.queueList.textContent = "";
 
-  const items = visibleQuestions.slice(0, 80);
+  const byId = new Map(visibleQuestions.map((question) => [question.id, question]));
+  const upcoming = (Array.isArray(state.questionQueue) ? state.questionQueue : [])
+    .map((id) => byId.get(id))
+    .filter(Boolean);
+  const seen = new Set();
+  const items = [current, ...upcoming, ...visibleQuestions]
+    .filter(Boolean)
+    .filter((question) => {
+      if (seen.has(question.id)) return false;
+      seen.add(question.id);
+      return true;
+    })
+    .slice(0, 80);
+
   for (const question of items) {
     const button = document.createElement("button");
     button.type = "button";
