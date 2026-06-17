@@ -1,10 +1,21 @@
 const questions = Array.isArray(window.QUESTION_BANK) ? window.QUESTION_BANK : [];
+const glossary = Array.isArray(window.SALESFORCE_GLOSSARY) ? window.SALESFORCE_GLOSSARY : [];
+const implementationRules = Array.isArray(window.IMPLEMENTATION_GUIDE_RULES)
+  ? window.IMPLEMENTATION_GUIDE_RULES
+  : [];
+const implementationFallback = window.IMPLEMENTATION_GUIDE_FALLBACK ?? {
+  title: "正答を設定へ反映する",
+  steps: ["正答の機能を設定で検索し、問題文と同じ条件で設定して動作確認します。"]
+};
 const storageKey = "salesforce-admin-practice-loop:v1";
 
 const dom = {
   answeredCount: document.querySelector("#answeredCount"),
   accuracy: document.querySelector("#accuracy"),
   streak: document.querySelector("#streak"),
+  remainingCount: document.querySelector("#remainingCount"),
+  progressBar: document.querySelector("#progressBar"),
+  progressText: document.querySelector("#progressText"),
   segments: [...document.querySelectorAll(".segment")],
   unansweredFirst: document.querySelector("#unansweredFirst"),
   shuffleChoices: document.querySelector("#shuffleChoices"),
@@ -15,13 +26,18 @@ const dom = {
   bookmark: document.querySelector("#bookmark"),
   resetCurrent: document.querySelector("#resetCurrent"),
   resetAll: document.querySelector("#resetAll"),
+  queueCount: document.querySelector("#queueCount"),
   queueList: document.querySelector("#queueList"),
   emptyState: document.querySelector("#emptyState"),
   questionCard: document.querySelector("#questionCard"),
   questionNumber: document.querySelector("#questionNumber"),
   questionTitle: document.querySelector("#questionTitle"),
-  sourceLink: document.querySelector("#sourceLink"),
   questionText: document.querySelector("#questionText"),
+  summaryToggle: document.querySelector("#summaryToggle"),
+  questionSummary: document.querySelector("#questionSummary"),
+  questionSummaryText: document.querySelector("#questionSummaryText"),
+  questionHint: document.querySelector("#questionHint"),
+  selectionStatus: document.querySelector("#selectionStatus"),
   choiceList: document.querySelector("#choiceList"),
   submitAnswer: document.querySelector("#submitAnswer"),
   showAnswer: document.querySelector("#showAnswer"),
@@ -29,11 +45,22 @@ const dom = {
   mobileSubmitAnswer: document.querySelector("#mobileSubmitAnswer"),
   mobileShowAnswer: document.querySelector("#mobileShowAnswer"),
   mobileNextQuestion: document.querySelector("#mobileNextQuestion"),
+  mobileGlossaryOpen: document.querySelector("#mobileGlossaryOpen"),
   mobileBookmark: document.querySelector("#mobileBookmark"),
+  glossaryOpen: document.querySelector("#glossaryOpen"),
+  glossaryOverlay: document.querySelector("#glossaryOverlay"),
+  glossaryClose: document.querySelector("#glossaryClose"),
+  glossarySearch: document.querySelector("#glossarySearch"),
+  glossaryFilters: document.querySelector("#glossaryFilters"),
+  glossaryContext: document.querySelector("#glossaryContext"),
+  glossaryList: document.querySelector("#glossaryList"),
+  glossaryEmpty: document.querySelector("#glossaryEmpty"),
   resultPanel: document.querySelector("#resultPanel"),
   resultBadge: document.querySelector("#resultBadge"),
   answerSummary: document.querySelector("#answerSummary"),
-  explanationList: document.querySelector("#explanationList")
+  explanationList: document.querySelector("#explanationList"),
+  implementationGuide: document.querySelector("#implementationGuide"),
+  implementationSections: document.querySelector("#implementationSections")
 };
 
 const fallbackState = {
@@ -60,6 +87,9 @@ let current = null;
 let renderedChoices = [];
 let answerShown = false;
 let explanationExpanded = false;
+let summaryExpanded = false;
+let glossaryFilter = "current";
+let glossaryTrigger = null;
 
 function loadState() {
   try {
@@ -106,6 +136,250 @@ function isWeak(question) {
 
 function correctIndexesFor(question) {
   return Array.isArray(question.correctIndexes) ? question.correctIndexes : [];
+}
+
+function splitSentences(value) {
+  return String(value)
+    .replace(/\s+/g, " ")
+    .trim()
+    .match(/[^。！？!?]+[。！？!?]?/g)
+    ?.map((sentence) => sentence.trim())
+    .filter(Boolean) ?? [];
+}
+
+function stripCompanyName(value) {
+  return value
+    .replace(/^[A-Z][A-Za-z '&.-]+社(?:\([^)]*\))?(?:の|では|は|には)?、?/i, "")
+    .replace(/^管理者(?:は|が|に)、?/, "")
+    .trim();
+}
+
+function simplifyContext(value) {
+  let context = stripCompanyName(value)
+    .replace(/管理者(?:は|が)、?/g, "")
+    .replace(/^[^、]{1,28}(?:は|が)、/, "")
+    .replace(/と考えています[。.]?$/, "")
+    .replace(/と考えています。/g, "。")
+    .replace(/を知りたがっています[。.]?$/, "")
+    .replace(/するよう依頼されました[。.]?$/, "する必要があります")
+    .replace(/よう求められました[。.]?$/, "必要があります")
+    .replace(/できるようにしたい[。.]?$/, "できるようにする必要があります")
+    .replace(/するために何が実装できるか$/, "する必要があります")
+    .replace(/[。.]$/, "")
+    .trim();
+
+  if (context.length > 86) {
+    context = `${context.slice(0, 83).replace(/[、,\s]+$/, "")}…`;
+  }
+
+  return context;
+}
+
+function simplifyAsk(value) {
+  return stripCompanyName(value)
+    .replace(/管理者(?:は|が|に|を)、?/g, "")
+    .replace(/どのように/g, "どう")
+    .replace(/使用すべきでしょうか/g, "使うべきか")
+    .replace(/活用すべきでしょうか/g, "活用すべきか")
+    .replace(/行うべき手順はどれですか/g, "どの手順が必要か")
+    .replace(/構成する必要がありますか/g, "設定する必要があるか")
+    .replace(/有効にする必要がありますか/g, "有効にする必要がある機能は何か")
+    .replace(/どこに行けばよいでしょうか/g, "どこで確認できるか")
+    .replace(/何をすべきでしょうか/g, "何をするべきか")
+    .replace(/必要がありますか/g, "必要があるか")
+    .replace(/どうなりますか/g, "どうなるか")
+    .replace(/できますか/g, "できるか")
+    .replace(/されますか/g, "されるか")
+    .replace(/すればよいですか/g, "すればよいか")
+    .replace(/すべきですか/g, "すべきか")
+    .replace(/何ですか/g, "何か")
+    .replace(/でしょうか/g, "か")
+    .replace(/ですか/g, "か")
+    .replace(/[。？?]$/, "")
+    .trim();
+}
+
+function summaryTarget(questionSentence) {
+  if (/手順|ステップ/.test(questionSentence)) return "そのために必要な手順";
+  if (/ツール/.test(questionSentence)) return "その要件を実現するために使うツール";
+  if (/機能/.test(questionSentence)) return "そのために使うSalesforceの機能";
+  if (/権限/.test(questionSentence)) return "そのために必要なユーザー権限";
+  if (/どこ|場所/.test(questionSentence)) return "その情報を確認する場所";
+  if (/なぜ|原因/.test(questionSentence)) return "その現象が起きる原因";
+  if (/考慮事項|留意/.test(questionSentence)) return "設定時に注意すべき点";
+  if (/構成|設定/.test(questionSentence)) return "そのために必要な設定";
+  return "その要件を満たす方法";
+}
+
+function summarizeQuestion(question) {
+  if (question.summary) return question.summary;
+
+  const sentences = splitSentences(question.question);
+  if (!sentences.length) return "この要件を満たすSalesforceの機能や設定を選ぶ問題です。";
+
+  let questionIndex = -1;
+  for (let index = sentences.length - 1; index >= 0; index -= 1) {
+    if (/(どれ|どの|何|なぜ|どこ|どう|でしょうか|ですか|ますか|必要がありますか)/.test(sentences[index])) {
+      questionIndex = index;
+      break;
+    }
+  }
+
+  if (questionIndex === -1) questionIndex = sentences.length - 1;
+
+  const rawAsk = sentences[questionIndex];
+  const ask = simplifyAsk(rawAsk);
+  const needsContext = (
+    /^(この|これ|上記|その)(要件|目標|問題|状況|目的|内容|実現)/.test(rawAsk) ||
+    /(どのツール|どの機能|どのソリューション|どのオプション|どの手順|どのステップ|どのユーザー権限|何を(?:使用|設定|構成|すべき)|どうすれば|どのようにこれ)/.test(rawAsk)
+  );
+
+  if (needsContext && questionIndex > 0) {
+    const context = simplifyContext(sentences.slice(0, questionIndex).join(""));
+    if (context) {
+      return `要するに、${context}。${summaryTarget(rawAsk)}を問う問題です。`;
+    }
+  }
+
+  return `要するに、${ask}を問う問題です。`;
+}
+
+function normalizeGlossaryText(value) {
+  return String(value ?? "")
+    .toLocaleLowerCase("ja")
+    .replace(/[\s・‐‑–—_-]+/g, "");
+}
+
+function glossaryAliases(entry) {
+  return [entry.term, entry.english, ...(entry.aliases ?? [])].filter(Boolean);
+}
+
+function currentGlossaryEntries() {
+  if (!current) return [];
+
+  const source = normalizeGlossaryText([current.question, ...(current.choices ?? [])].join(" "));
+  return glossary.filter((entry) => {
+    const keywords = entry.keywords?.length ? entry.keywords : glossaryAliases(entry);
+    return keywords.some((keyword) => source.includes(normalizeGlossaryText(keyword)));
+  });
+}
+
+function glossaryCategories() {
+  return [...new Set(glossary.map((entry) => entry.category).filter(Boolean))];
+}
+
+function createGlossaryFilter(value, label, count) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "glossary-filter";
+  button.classList.toggle("active", glossaryFilter === value);
+  button.setAttribute("aria-pressed", String(glossaryFilter === value));
+  button.textContent = count == null ? label : `${label} ${count}`;
+  button.addEventListener("click", () => {
+    glossaryFilter = value;
+    renderGlossary();
+  });
+  return button;
+}
+
+function renderGlossaryFilters() {
+  const relatedCount = currentGlossaryEntries().length;
+  dom.glossaryFilters.textContent = "";
+  dom.glossaryFilters.append(
+    createGlossaryFilter("current", "この問題", relatedCount),
+    createGlossaryFilter("all", "すべて", glossary.length)
+  );
+
+  glossaryCategories().forEach((category) => {
+    dom.glossaryFilters.append(createGlossaryFilter(category, category));
+  });
+}
+
+function glossaryEntryMatchesSearch(entry, query) {
+  if (!query) return true;
+  const target = normalizeGlossaryText([
+    ...glossaryAliases(entry),
+    entry.category,
+    entry.definition
+  ].join(" "));
+  return target.includes(query);
+}
+
+function renderGlossaryEntry(entry) {
+  const article = document.createElement("article");
+  article.className = "glossary-entry";
+
+  const heading = document.createElement("div");
+  heading.className = "glossary-entry-heading";
+
+  const titleGroup = document.createElement("div");
+  const title = document.createElement("h3");
+  title.textContent = entry.term;
+  titleGroup.append(title);
+
+  if (entry.english) {
+    const english = document.createElement("span");
+    english.className = "glossary-english";
+    english.textContent = entry.english;
+    titleGroup.append(english);
+  }
+
+  const category = document.createElement("span");
+  category.className = "glossary-category";
+  category.textContent = entry.category;
+  heading.append(titleGroup, category);
+
+  const definition = document.createElement("p");
+  definition.textContent = entry.definition;
+  article.append(heading, definition);
+  return article;
+}
+
+function renderGlossary() {
+  if (!dom.glossaryList) return;
+
+  const query = normalizeGlossaryText(dom.glossarySearch.value);
+  const related = currentGlossaryEntries();
+  let entries = glossary;
+
+  if (glossaryFilter === "current") {
+    entries = related;
+  } else if (glossaryFilter !== "all") {
+    entries = glossary.filter((entry) => entry.category === glossaryFilter);
+  }
+
+  entries = entries
+    .filter((entry) => glossaryEntryMatchesSearch(entry, query))
+    .sort((left, right) => left.term.localeCompare(right.term, "ja"));
+
+  renderGlossaryFilters();
+  dom.glossaryList.textContent = "";
+  entries.forEach((entry) => dom.glossaryList.append(renderGlossaryEntry(entry)));
+  dom.glossaryEmpty.hidden = entries.length > 0;
+
+  if (glossaryFilter === "current") {
+    dom.glossaryContext.textContent = related.length
+      ? `第${current?.number ?? "?"}問に関係する用語を表示しています。`
+      : "この問題に一致する用語はありません。「すべて」から検索できます。";
+  } else {
+    dom.glossaryContext.textContent = `${entries.length}件の用語を表示しています。`;
+  }
+}
+
+function openGlossary(event) {
+  glossaryTrigger = event?.currentTarget ?? document.activeElement;
+  glossaryFilter = currentGlossaryEntries().length ? "current" : "all";
+  dom.glossarySearch.value = "";
+  dom.glossaryOverlay.hidden = false;
+  document.body.classList.add("dialog-open");
+  renderGlossary();
+  requestAnimationFrame(() => dom.glossarySearch.focus());
+}
+
+function closeGlossary() {
+  dom.glossaryOverlay.hidden = true;
+  document.body.classList.remove("dialog-open");
+  glossaryTrigger?.focus?.();
 }
 
 function syncControls() {
@@ -219,6 +493,7 @@ function setCurrent(question) {
   state.selected = [];
   answerShown = false;
   explanationExpanded = false;
+  summaryExpanded = false;
   const choiceEntries = question.choices.map((text, index) => ({ text, index }));
   renderedChoices = state.settings.shuffleChoices ? shuffle(choiceEntries) : choiceEntries;
   saveState();
@@ -301,6 +576,12 @@ function showAnswer() {
   render();
 }
 
+function toggleSummary() {
+  if (!current) return;
+  summaryExpanded = !summaryExpanded;
+  renderSummary();
+}
+
 function resetCurrent() {
   if (!current) return;
   delete state.answered[current.id];
@@ -348,6 +629,18 @@ function renderStats() {
   dom.answeredCount.textContent = String(currentStats.answered);
   dom.accuracy.textContent = `${currentStats.accuracy}%`;
   dom.streak.textContent = String(state.streak || 0);
+
+  const pool = buildQuestionPool();
+  const remaining = Math.min(
+    pool.length,
+    (Array.isArray(state.questionQueue) ? state.questionQueue.length : 0) + (current ? 1 : 0)
+  );
+  const completed = Math.max(pool.length - remaining, 0);
+  const percentage = pool.length ? Math.round((completed / pool.length) * 100) : 0;
+
+  dom.remainingCount.textContent = `${remaining}問`;
+  dom.progressText.textContent = `${completed} / ${pool.length}問 完了`;
+  dom.progressBar.style.width = `${percentage}%`;
 }
 
 function renderQueue() {
@@ -367,6 +660,8 @@ function renderQueue() {
       return true;
     })
     .slice(0, 80);
+
+  dom.queueCount.textContent = `${visibleQuestions.length}問`;
 
   for (const question of items) {
     const button = document.createElement("button");
@@ -392,17 +687,30 @@ function queueStatus(question) {
 function renderQuestion() {
   if (!current) return;
 
-  dom.questionNumber.textContent = current.number ? `Question ${current.number}` : "Question";
-  dom.questionTitle.textContent = current.title || "Salesforce Admin";
-  dom.sourceLink.href = current.url;
+  const requiredCount = Math.max(correctIndexesFor(current).length, 1);
+  dom.questionNumber.textContent = "Salesforce Administrator";
+  dom.questionTitle.textContent = current.number ? `第${current.number}問` : "練習問題";
   dom.questionText.textContent = current.question;
+  dom.questionHint.textContent = requiredCount > 1 ? `${requiredCount}つ選択` : "1つ選択";
+  dom.selectionStatus.textContent = `選択中 ${state.selected.length} / ${requiredCount}`;
   dom.bookmark.classList.toggle("active", Boolean(state.bookmarks[current.id]));
   dom.mobileBookmark.classList.toggle("active", Boolean(state.bookmarks[current.id]));
   dom.submitAnswer.disabled = answerShown || !state.selected.length;
   dom.mobileSubmitAnswer.disabled = answerShown || !state.selected.length;
 
+  renderSummary();
   renderChoices();
   renderResult();
+}
+
+function renderSummary() {
+  if (!current) return;
+
+  dom.questionSummaryText.textContent = summarizeQuestion(current);
+  dom.questionSummary.hidden = !summaryExpanded;
+  dom.summaryToggle.setAttribute("aria-expanded", String(summaryExpanded));
+  dom.summaryToggle.classList.toggle("active", summaryExpanded);
+  dom.summaryToggle.querySelector("span:first-child").textContent = summaryExpanded ? "要点を閉じる" : "要点を見る";
 }
 
 function renderChoices() {
@@ -412,11 +720,12 @@ function renderChoices() {
   const correct = new Set(correctIndexesFor(current));
   dom.choiceList.textContent = "";
 
-  for (const item of renderedChoices) {
+  renderedChoices.forEach((item, displayIndex) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "choice";
     button.classList.toggle("selected", selected.has(item.index));
+    button.setAttribute("aria-pressed", String(selected.has(item.index)));
 
     if (answerShown) {
       button.classList.toggle("correct", correct.has(item.index));
@@ -424,26 +733,118 @@ function renderChoices() {
     }
 
     const marker = answerShown
-      ? correct.has(item.index) ? "✓" : selected.has(item.index) ? "×" : ""
-      : selected.has(item.index) ? "●" : "";
+      ? correct.has(item.index) ? "✓" : selected.has(item.index) ? "×" : String.fromCharCode(65 + displayIndex)
+      : selected.has(item.index) ? "✓" : String.fromCharCode(65 + displayIndex);
 
     button.innerHTML = `
       <span class="choice-marker" aria-hidden="true">${marker}</span>
-      <span>${escapeHtml(item.text)}</span>
+      <span class="choice-text">${escapeHtml(item.text)}</span>
     `;
     button.addEventListener("click", () => toggleSelection(item.index));
     dom.choiceList.append(button);
-  }
+  });
 
   dom.submitAnswer.disabled = answerShown || !state.selected.length;
   dom.mobileSubmitAnswer.disabled = answerShown || !state.selected.length;
+  dom.selectionStatus.textContent = `選択中 ${state.selected.length} / ${Math.max(correctIndexesFor(current).length, 1)}`;
+}
+
+function implementationObjectName(question) {
+  const source = [question.question, ...question.choices].join(" ");
+  const objectNames = [
+    "キャンペーンメンバー",
+    "取引先責任者",
+    "個人取引先",
+    "カスタムオブジェクト",
+    "取引先",
+    "商談",
+    "リード",
+    "ケース",
+    "キャンペーン",
+    "契約",
+    "商品",
+    "ユーザー",
+    "ToDo"
+  ];
+  return objectNames.find((name) => source.includes(name)) ?? "対象オブジェクト";
+}
+
+function replaceImplementationTokens(value, context) {
+  return String(value)
+    .replaceAll("{object}", context.object)
+    .replaceAll("{answer}", context.answer);
+}
+
+function implementationGuidesFor(question) {
+  const correctAnswers = correctIndexesFor(question)
+    .map((index) => question.choices[index])
+    .filter(Boolean);
+  const answerText = correctAnswers.join(" / ");
+  const usedGroups = new Set();
+  const matches = [];
+
+  for (const rule of implementationRules) {
+    const matched = rule.patterns?.some((pattern) => {
+      try {
+        return new RegExp(pattern, "i").test(answerText);
+      } catch {
+        return answerText.includes(pattern);
+      }
+    });
+
+    if (!matched || (rule.group && usedGroups.has(rule.group))) continue;
+    matches.push(rule);
+    if (rule.group) usedGroups.add(rule.group);
+    if (matches.length >= 3) break;
+  }
+
+  const shortenedAnswer = answerText.length > 110
+    ? `${answerText.slice(0, 107).replace(/[、,\s]+$/, "")}…`
+    : answerText;
+  const context = {
+    object: implementationObjectName(question),
+    answer: shortenedAnswer || "正答の内容"
+  };
+  const guides = matches.length ? matches : [implementationFallback];
+
+  return guides.map((guide) => ({
+    title: replaceImplementationTokens(guide.title, context),
+    steps: guide.steps.map((step) => replaceImplementationTokens(step, context))
+  }));
+}
+
+function renderImplementationGuide() {
+  dom.implementationGuide.hidden = !explanationExpanded;
+  dom.implementationSections.textContent = "";
+  if (!explanationExpanded || !current) return;
+
+  implementationGuidesFor(current).forEach((guide) => {
+    const section = document.createElement("section");
+    section.className = "implementation-section";
+
+    const heading = document.createElement("h4");
+    heading.textContent = guide.title;
+
+    const list = document.createElement("ol");
+    guide.steps.forEach((step) => {
+      const item = document.createElement("li");
+      item.textContent = step;
+      list.append(item);
+    });
+
+    section.append(heading, list);
+    dom.implementationSections.append(section);
+  });
 }
 
 function renderResult() {
   if (!current) return;
 
   dom.resultPanel.hidden = !answerShown;
-  if (!answerShown) return;
+  if (!answerShown) {
+    dom.implementationGuide.hidden = true;
+    return;
+  }
 
   const correctIndexes = correctIndexesFor(current);
   const selected = state.selected.length
@@ -457,6 +858,7 @@ function renderResult() {
   dom.answerSummary.textContent = `正答: ${correctLabels || "未検出"}`;
   dom.explanationList.textContent = "";
   dom.explanationList.hidden = !explanationExpanded;
+  renderImplementationGuide();
 
   if (!explanationExpanded) return;
 
@@ -497,6 +899,7 @@ function render() {
 
   renderQuestion();
   renderQueue();
+  if (!dom.glossaryOverlay.hidden) renderGlossary();
 }
 
 function escapeHtml(value) {
@@ -556,10 +959,21 @@ function init() {
   dom.resetAll.addEventListener("click", resetAll);
   dom.submitAnswer.addEventListener("click", submitAnswer);
   dom.showAnswer.addEventListener("click", showAnswer);
+  dom.summaryToggle.addEventListener("click", toggleSummary);
   dom.mobileNextQuestion.addEventListener("click", chooseNext);
+  dom.mobileGlossaryOpen.addEventListener("click", openGlossary);
   dom.mobileBookmark.addEventListener("click", toggleBookmark);
   dom.mobileSubmitAnswer.addEventListener("click", submitAnswer);
   dom.mobileShowAnswer.addEventListener("click", showAnswer);
+  dom.glossaryOpen.addEventListener("click", openGlossary);
+  dom.glossaryClose.addEventListener("click", closeGlossary);
+  dom.glossarySearch.addEventListener("input", renderGlossary);
+  dom.glossaryOverlay.addEventListener("click", (event) => {
+    if (event.target === dom.glossaryOverlay) closeGlossary();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !dom.glossaryOverlay.hidden) closeGlossary();
+  });
 
   syncControls();
   chooseNext();

@@ -3,85 +3,121 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#0f766e">
+    <meta name="theme-color" content="#0176d3">
     <title>Salesforce Admin Practice Loop</title>
-    <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="icon" href="./icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="./styles.css">
+    <link rel="manifest" href="./manifest.webmanifest?v=8">
+    <link rel="icon" href="./icon.svg?v=8" type="image/svg+xml">
+    <link rel="stylesheet" href="./styles.css?v=8">
   </head>
   <body>
     <main class="app-shell">
-      <section class="topbar" aria-label="学習状況">
-        <div>
-          <p class="eyebrow">Salesforce Administrator</p>
-          <h1>Practice Loop</h1>
-        </div>
-        <div class="score-strip">
+      <header class="topbar" aria-label="学習状況">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">SF</div>
           <div>
-            <span id="answeredCount">0</span>
-            <small>回答</small>
-          </div>
-          <div>
-            <span id="accuracy">0%</span>
-            <small>正答率</small>
-          </div>
-          <div>
-            <span id="streak">0</span>
-            <small>連続</small>
+            <p class="eyebrow">Salesforce Administrator</p>
+            <h1>Admin Practice</h1>
           </div>
         </div>
-      </section>
+        <div class="header-actions">
+          <div class="score-strip">
+            <div>
+              <span id="answeredCount">0</span>
+              <small>回答数</small>
+            </div>
+            <div>
+              <span id="accuracy">0%</span>
+              <small>正答率</small>
+            </div>
+            <div>
+              <span id="streak">0</span>
+              <small>連続</small>
+            </div>
+          </div>
+          <button id="glossaryOpen" class="header-tool" type="button">
+            <span class="header-tool-mark" aria-hidden="true">Aa</span>
+            <span>用語集</span>
+          </button>
+        </div>
+      </header>
 
       <section class="workspace">
         <aside class="panel controls" aria-label="出題設定">
-          <div class="segmented" role="tablist" aria-label="出題範囲">
-            <button class="segment active" type="button" data-filter="all">全問</button>
-            <button class="segment" type="button" data-filter="missed">間違い</button>
-            <button class="segment" type="button" data-filter="bookmarked">保存</button>
-            <button class="segment" type="button" data-filter="weak">苦手</button>
-          </div>
+          <section class="control-section">
+            <p class="section-label">出題モード</p>
+            <div class="segmented" role="tablist" aria-label="出題範囲">
+              <button class="segment active" type="button" data-filter="all">全問</button>
+              <button class="segment" type="button" data-filter="missed">間違い</button>
+              <button class="segment" type="button" data-filter="bookmarked">保存</button>
+              <button class="segment" type="button" data-filter="weak">苦手</button>
+            </div>
+          </section>
 
-          <label class="toggle-row">
-            <span>未回答を優先</span>
-            <input id="unansweredFirst" type="checkbox" checked>
-          </label>
+          <section class="progress-panel" aria-label="出題進捗">
+            <div class="progress-heading">
+              <span>この周の残り</span>
+              <strong id="remainingCount">181問</strong>
+            </div>
+            <div class="progress-track" aria-hidden="true">
+              <span id="progressBar"></span>
+            </div>
+            <small id="progressText">0 / 181問 完了</small>
+          </section>
 
-          <label class="toggle-row">
-            <span>選択肢をシャッフル</span>
-            <input id="shuffleChoices" type="checkbox" checked>
-          </label>
+          <section class="control-section settings-section">
+            <p class="section-label">出題設定</p>
+            <label class="toggle-row">
+              <span>未回答を優先</span>
+              <input id="unansweredFirst" type="checkbox" checked>
+            </label>
 
-          <label class="toggle-row">
-            <span>回答後に自動で解説</span>
-            <input id="autoExplain" type="checkbox" checked>
-          </label>
+            <label class="toggle-row">
+              <span>選択肢をシャッフル</span>
+              <input id="shuffleChoices" type="checkbox" checked>
+            </label>
 
-          <div class="range-row">
-            <label for="rangeStart">開始</label>
-            <input id="rangeStart" type="number" min="1" value="1">
-            <label for="rangeEnd">終了</label>
-            <input id="rangeEnd" type="number" min="1" value="181">
-          </div>
+            <label class="toggle-row">
+              <span>回答後に自動で解説</span>
+              <input id="autoExplain" type="checkbox" checked>
+            </label>
+          </section>
 
-          <div class="button-grid">
-            <button id="nextQuestion" class="tool-button primary" type="button" aria-label="次の問題">
-              <span aria-hidden="true">→</span>
-            </button>
-            <button id="bookmark" class="tool-button" type="button" aria-label="ブックマーク">
-              <span aria-hidden="true">☆</span>
-            </button>
-            <button id="resetCurrent" class="tool-button" type="button" aria-label="この問題を未回答に戻す">
-              <span aria-hidden="true">↺</span>
-            </button>
-            <button id="resetAll" class="tool-button danger" type="button" aria-label="全履歴をリセット">
-              <span aria-hidden="true">×</span>
-            </button>
-          </div>
+          <section class="control-section">
+            <p class="section-label">問題範囲</p>
+            <div class="range-row">
+              <label for="rangeStart">開始</label>
+              <input id="rangeStart" type="number" min="1" value="1">
+              <span aria-hidden="true">–</span>
+              <label for="rangeEnd" class="visually-hidden">終了</label>
+              <input id="rangeEnd" type="number" min="1" value="181">
+            </div>
+          </section>
 
-          <div class="mini-list">
-            <h2>Queue</h2>
+          <section class="control-section">
+            <p class="section-label">操作</p>
+            <div class="button-grid">
+              <button id="nextQuestion" class="tool-button primary" type="button">
+                <span>次へ</span><span aria-hidden="true">→</span>
+              </button>
+              <button id="bookmark" class="tool-button" type="button">
+                <span>保存</span><span aria-hidden="true">☆</span>
+              </button>
+              <button id="resetCurrent" class="tool-button" type="button">
+                <span>やり直す</span><span aria-hidden="true">↺</span>
+              </button>
+              <button id="resetAll" class="tool-button danger" type="button">
+                <span>履歴削除</span><span aria-hidden="true">×</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="mini-list">
+            <div class="section-heading">
+              <h2>出題順</h2>
+              <span id="queueCount">0問</span>
+            </div>
             <div id="queueList" class="queue-list"></div>
-          </div>
+          </section>
         </aside>
 
         <section class="question-stage" aria-live="polite">
@@ -93,26 +129,64 @@
           <article id="questionCard" class="question-card">
             <header class="question-meta">
               <div>
-                <p id="questionNumber" class="eyebrow">Question</p>
+                <p id="questionNumber" class="question-kicker">Salesforce Administrator</p>
                 <h2 id="questionTitle">Loading...</h2>
               </div>
-              <a id="sourceLink" class="source-link" href="#" target="_blank" rel="noreferrer">Source</a>
             </header>
 
-            <p id="questionText" class="question-text"></p>
+            <div class="question-body">
+              <div class="question-copy">
+                <p id="questionText" class="question-text"></p>
+                <button
+                  id="summaryToggle"
+                  class="summary-toggle"
+                  type="button"
+                  aria-expanded="false"
+                  aria-controls="questionSummary"
+                >
+                  <span>要点を見る</span>
+                  <span class="summary-toggle-icon" aria-hidden="true">⌄</span>
+                </button>
+              </div>
 
-            <div id="choiceList" class="choice-list"></div>
+              <aside id="questionSummary" class="question-summary" hidden>
+                <span class="summary-label">かんたんに言うと</span>
+                <p id="questionSummaryText"></p>
+              </aside>
 
-            <div class="action-row">
-              <button id="submitAnswer" class="action-button primary" type="button">回答する</button>
-              <button id="showAnswer" class="action-button" type="button">解説</button>
+              <div class="selection-guide">
+                <span id="questionHint">1つ選択</span>
+                <span id="selectionStatus">選択中 0 / 1</span>
+              </div>
+
+              <div id="choiceList" class="choice-list"></div>
+
+              <div class="action-row">
+                <button id="submitAnswer" class="action-button primary" type="button">回答する</button>
+                <button id="showAnswer" class="action-button" type="button">解説を見る</button>
+              </div>
+
+              <section id="resultPanel" class="result-panel" hidden>
+                <div class="result-heading">
+                  <div id="resultBadge" class="result-badge"></div>
+                  <div id="answerSummary" class="answer-summary"></div>
+                </div>
+                <div id="explanationList" class="explanation-list"></div>
+                <section id="implementationGuide" class="implementation-guide" hidden>
+                  <header class="implementation-heading">
+                    <div>
+                      <span class="implementation-label">設定画面で試す</span>
+                      <h3>実装手順</h3>
+                    </div>
+                    <span class="implementation-chip">Hands-on</span>
+                  </header>
+                  <div id="implementationSections" class="implementation-sections"></div>
+                  <p class="implementation-note">
+                    組織のエディションや権限により、設定名や表示場所が一部異なる場合があります。
+                  </p>
+                </section>
+              </section>
             </div>
-
-            <section id="resultPanel" class="result-panel" hidden>
-              <div id="resultBadge" class="result-badge"></div>
-              <div id="answerSummary" class="answer-summary"></div>
-              <div id="explanationList" class="explanation-list"></div>
-            </section>
           </article>
         </section>
       </section>
@@ -121,13 +195,45 @@
         <button id="mobileSubmitAnswer" class="mobile-command primary" type="button">回答</button>
         <button id="mobileShowAnswer" class="mobile-command" type="button">解説</button>
         <button id="mobileNextQuestion" class="mobile-command primary" type="button">次へ</button>
+        <button id="mobileGlossaryOpen" class="mobile-command" type="button">用語</button>
         <button id="mobileBookmark" class="mobile-command icon" type="button" aria-label="ブックマーク">
           <span aria-hidden="true">☆</span>
         </button>
       </nav>
     </main>
 
-    <script src="./data/questions.js"></script>
-    <script src="./app.js"></script>
+    <div id="glossaryOverlay" class="glossary-overlay" hidden>
+      <section
+        class="glossary-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="glossaryTitle"
+      >
+        <header class="glossary-header">
+          <div>
+            <p class="eyebrow">Study reference</p>
+            <h2 id="glossaryTitle">Salesforce 用語集</h2>
+          </div>
+          <button id="glossaryClose" class="glossary-close" type="button" aria-label="用語集を閉じる">×</button>
+        </header>
+
+        <div class="glossary-tools">
+          <label class="glossary-search">
+            <span class="visually-hidden">用語を検索</span>
+            <input id="glossarySearch" type="search" placeholder="用語・英語名を検索" autocomplete="off">
+          </label>
+          <div id="glossaryFilters" class="glossary-filters" aria-label="用語の絞り込み"></div>
+        </div>
+
+        <p id="glossaryContext" class="glossary-context"></p>
+        <div id="glossaryList" class="glossary-list"></div>
+        <p id="glossaryEmpty" class="glossary-empty" hidden>該当する用語がありません。</p>
+      </section>
+    </div>
+
+    <script src="./data/questions.js?v=8"></script>
+    <script src="./data/glossary.js?v=8"></script>
+    <script src="./data/implementation-guides.js?v=8"></script>
+    <script src="./app.js?v=8"></script>
   </body>
 </html>
