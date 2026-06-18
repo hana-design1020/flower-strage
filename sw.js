@@ -1,16 +1,19 @@
-const CACHE_NAME = "salesforce-admin-practice-loop-v8";
+const CACHE_NAME = "salesforce-admin-practice-loop-v10";
 const ASSETS = [
   "./",
-  "./?v=8",
+  "./?v=10",
   "./index.html",
-  "./index.html?v=8",
-  "./styles.css?v=8",
-  "./app.js?v=8",
-  "./data/questions.js?v=8",
-  "./data/glossary.js?v=8",
-  "./data/implementation-guides.js?v=8",
-  "./manifest.webmanifest?v=8",
-  "./icon.svg?v=8"
+  "./index.html?v=10",
+  "./styles.css?v=10",
+  "./app.js?v=10",
+  "./app-extension.js?v=10",
+  "./data/questions.js?v=10",
+  "./data/additional-questions.js?v=10",
+  "./data/glossary.js?v=10",
+  "./data/implementation-guides.js?v=10",
+  "./data/implementation-guides-extra.js?v=10",
+  "./manifest.webmanifest?v=10",
+  "./icon.svg?v=10"
 ];
 
 self.addEventListener("install", (event) => {
