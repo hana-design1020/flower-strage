@@ -1,7 +1,7 @@
 {
   "name": "Salesforce Admin Practice Loop",
   "short_name": "Admin Loop",
-  "start_url": "./index.html?v=8",
+  "start_url": "./index.html?v=10",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f4f7f8",
@@ -9,7 +9,7 @@
   "description": "Salesforce Administrator practice questions for repeated study.",
   "icons": [
     {
-      "src": "./icon.svg?v=8",
+      "src": "./icon.svg?v=10",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
