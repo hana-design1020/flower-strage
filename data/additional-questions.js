@@ -401,6 +401,10 @@ window.ADDITIONAL_QUESTION_BANK = [
   }
 ];
 
+window.ADDITIONAL_QUESTION_BANK.forEach((question) => {
+  question.source = question.source ?? "jpn";
+});
+
 if (Array.isArray(window.QUESTION_BANK)) {
   window.QUESTION_BANK.push(...window.ADDITIONAL_QUESTION_BANK);
 }
