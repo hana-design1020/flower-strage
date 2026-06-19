@@ -17,6 +17,7 @@ const dom = {
   progressBar: document.querySelector("#progressBar"),
   progressText: document.querySelector("#progressText"),
   segments: [...document.querySelectorAll(".segment")],
+  sourceSegments: [...document.querySelectorAll(".source-segment")],
   unansweredFirst: document.querySelector("#unansweredFirst"),
   shuffleChoices: document.querySelector("#shuffleChoices"),
   autoExplain: document.querySelector("#autoExplain"),
@@ -65,6 +66,7 @@ const dom = {
 
 const fallbackState = {
   activeFilter: "all",
+  sourceFilter: "all",
   currentId: null,
   selected: [],
   answered: {},
@@ -77,7 +79,7 @@ const fallbackState = {
     shuffleChoices: true,
     autoExplain: true,
     rangeStart: 1,
-    rangeEnd: 181
+    rangeEnd: 253
   }
 };
 
@@ -122,6 +124,23 @@ function shuffle(items) {
 
 function byNumber(a, b) {
   return (a.number ?? 0) - (b.number ?? 0);
+}
+
+const sourceLabels = {
+  tyson: "タイソン",
+  jpn: "JPN",
+  other: "その他"
+};
+
+function questionSource(question) {
+  if (question.source) return question.source;
+  if (/tysonblog/i.test(question.url ?? "")) return "tyson";
+  if (/^(admin-extra|admin-jpn)-/.test(question.id ?? "")) return "jpn";
+  return "other";
+}
+
+function questionSourceLabel(question) {
+  return sourceLabels[questionSource(question)] ?? sourceLabels.other;
 }
 
 function getRecord(question) {
@@ -392,6 +411,10 @@ function syncControls() {
   dom.segments.forEach((segment) => {
     segment.classList.toggle("active", segment.dataset.filter === state.activeFilter);
   });
+
+  dom.sourceSegments.forEach((segment) => {
+    segment.classList.toggle("active", segment.dataset.sourceFilter === state.sourceFilter);
+  });
 }
 
 function buildQuestionPool() {
@@ -404,6 +427,10 @@ function buildQuestionPool() {
     const number = question.number ?? 0;
     return number >= min && number <= max;
   });
+
+  if (state.sourceFilter && state.sourceFilter !== "all") {
+    pool = pool.filter((question) => questionSource(question) === state.sourceFilter);
+  }
 
   if (state.activeFilter === "missed") {
     pool = pool.filter((question) => getRecord(question)?.lastCorrect === false);
@@ -428,6 +455,7 @@ function queueSignature(pool) {
   const ids = [...pool].sort(byNumber).map((question) => question.id);
   return [
     state.activeFilter,
+    state.sourceFilter,
     state.settings.unansweredFirst ? "unanswered-first" : "balanced",
     Number(dom.rangeStart.value || state.settings.rangeStart || 1),
     Number(dom.rangeEnd.value || state.settings.rangeEnd || 9999),
@@ -471,6 +499,16 @@ function ensureQuestionQueue(pool) {
   }
 }
 
+function scrollToTopAfterQuestionChange() {
+  requestAnimationFrame(() => {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "smooth"
+    });
+  });
+}
+
 function buildVisibleQuestions() {
   return buildQuestionPool();
 }
@@ -500,10 +538,11 @@ function setCurrent(question) {
   render();
 }
 
-function chooseNext() {
+function chooseNext(options = {}) {
   visibleQuestions = buildQuestionPool();
   if (!visibleQuestions.length) {
     setCurrent(null);
+    if (options.scrollToTop) scrollToTopAfterQuestionChange();
     return;
   }
 
@@ -512,6 +551,7 @@ function chooseNext() {
   const nextId = state.questionQueue.shift();
   const nextQuestion = visibleQuestions.find((question) => question.id === nextId) ?? visibleQuestions[0];
   setCurrent(nextQuestion);
+  if (options.scrollToTop) scrollToTopAfterQuestionChange();
 }
 
 function arraysEqualAsSet(first, second) {
@@ -670,7 +710,7 @@ function renderQueue() {
     button.classList.toggle("current", question.id === current?.id);
     button.innerHTML = `
       <span>Q${question.number ?? "?"}</span>
-      <small>${queueStatus(question)}</small>
+      <small>${escapeHtml(questionSourceLabel(question))} / ${queueStatus(question)}</small>
     `;
     button.addEventListener("click", () => setCurrent(question));
     dom.queueList.append(button);
@@ -688,7 +728,7 @@ function renderQuestion() {
   if (!current) return;
 
   const requiredCount = Math.max(correctIndexesFor(current).length, 1);
-  dom.questionNumber.textContent = "Salesforce Administrator";
+  dom.questionNumber.textContent = `${questionSourceLabel(current)} / Salesforce Administrator`;
   dom.questionTitle.textContent = current.number ? `第${current.number}問` : "練習問題";
   dom.questionText.textContent = current.question;
   dom.questionHint.textContent = requiredCount > 1 ? `${requiredCount}つ選択` : "1つ選択";
@@ -775,6 +815,64 @@ function replaceImplementationTokens(value, context) {
     .replaceAll("{answer}", context.answer);
 }
 
+function implementationStepTitle(index) {
+  return [
+    "設定画面を開く",
+    "基本設定を入力する",
+    "関連設定を仕上げる",
+    "保存して機能を確認する"
+  ][index] ?? `設定作業 ${index + 1}`;
+}
+
+function implementationPracticeTarget(guide, context) {
+  const targets = {
+    access: "テストユーザーと権限",
+    security: "テストユーザーとログイン条件",
+    "user-admin": "テストユーザー",
+    reporting: "テストレポートと集計元データ",
+    chatter: "テストグループまたは投稿",
+    organization: "変更した組織設定",
+    "data-governance": "エクスポートしたテストデータと設定",
+    deployment: "検証用の変更内容",
+    package: "検証用のパッケージまたはアプリ"
+  };
+  return targets[guide.group] ?? `${context.object}のテストデータ`;
+}
+
+function detailedImplementationSteps(guide, context, question) {
+  const practiceName = `Q${question.number}_HandsOn`;
+  const requirement = summarizeQuestion(question).replace(/^要するに、/, "");
+  const practiceTarget = implementationPracticeTarget(guide, context);
+  const configuredSteps = guide.steps.map((step, index) => ({
+    title: implementationStepTitle(index),
+    detail: replaceImplementationTokens(step, context)
+  }));
+
+  return [
+    {
+      title: "完成条件を確認する",
+      detail: `${requirement} 正答「${context.answer}」を使って再現できれば完成です。`
+    },
+    {
+      title: "練習環境と名前を準備する",
+      detail: `本番組織ではなく、Trailhead Playground、Developer Edition、またはSandboxへシステム管理者でログインします。作成する設定やテストデータには「${practiceName}」を含め、後から見分けられるようにします。`
+    },
+    ...configuredSteps,
+    {
+      title: "正常系をテストする",
+      detail: `${practiceTarget}「${practiceName}」を使い、問題文の条件をすべて満たす操作を行います。正答どおりの表示、権限、更新、通知、または集計結果になることを確認します。`
+    },
+    {
+      title: "条件違いと権限違いをテストする",
+      detail: "問題文の条件を1つだけ外したデータでも試します。必要に応じて一般ユーザーへログインを切り替え、許可される操作と拒否される操作が要件どおりに分かれることを確認します。"
+    },
+    {
+      title: "結果を記録して後片付けする",
+      detail: `期待結果と実際の結果、使用したテストユーザーをメモします。練習後は「${practiceName}」で検索し、不要なテストデータを削除して、作成した自動化や設定を無効化または削除します。`
+    }
+  ];
+}
+
 function implementationGuidesFor(question) {
   const correctAnswers = correctIndexesFor(question)
     .map((index) => question.choices[index])
@@ -809,7 +907,7 @@ function implementationGuidesFor(question) {
 
   return guides.map((guide) => ({
     title: replaceImplementationTokens(guide.title, context),
-    steps: guide.steps.map((step) => replaceImplementationTokens(step, context))
+    steps: detailedImplementationSteps(guide, context, question)
   }));
 }
 
@@ -828,7 +926,15 @@ function renderImplementationGuide() {
     const list = document.createElement("ol");
     guide.steps.forEach((step) => {
       const item = document.createElement("li");
-      item.textContent = step;
+
+      const title = document.createElement("strong");
+      title.className = "implementation-step-title";
+      title.textContent = step.title;
+
+      const detail = document.createElement("p");
+      detail.textContent = step.detail;
+
+      item.append(title, detail);
       list.append(item);
     });
 
@@ -922,19 +1028,24 @@ function onSettingChange() {
 }
 
 function init() {
+  const savedStateExists = Boolean(localStorage.getItem(storageKey));
+
   if (questions.length) {
     const numbers = questions.map((question) => question.number).filter(Number.isFinite);
     if (numbers.length) {
       const min = Math.min(...numbers);
       const max = Math.max(...numbers);
+      const oldFullRangeEnds = new Set([181, 201]);
       state.settings.rangeStart = state.settings.rangeStart || min;
       state.settings.rangeEnd = state.settings.rangeEnd || max;
       dom.rangeStart.min = String(min);
       dom.rangeStart.max = String(max);
       dom.rangeEnd.min = String(min);
       dom.rangeEnd.max = String(max);
-      if (!localStorage.getItem(storageKey)) {
+      if (!savedStateExists) {
         state.settings.rangeStart = min;
+        state.settings.rangeEnd = max;
+      } else if (oldFullRangeEnds.has(Number(state.settings.rangeEnd)) || Number(state.settings.rangeEnd) > max) {
         state.settings.rangeEnd = max;
       }
     }
@@ -948,19 +1059,27 @@ function init() {
     });
   });
 
+  dom.sourceSegments.forEach((segment) => {
+    segment.addEventListener("click", () => {
+      state.sourceFilter = segment.dataset.sourceFilter;
+      saveState();
+      chooseNext();
+    });
+  });
+
   dom.unansweredFirst.addEventListener("change", onSettingChange);
   dom.shuffleChoices.addEventListener("change", onSettingChange);
   dom.autoExplain.addEventListener("change", onSettingChange);
   dom.rangeStart.addEventListener("change", onSettingChange);
   dom.rangeEnd.addEventListener("change", onSettingChange);
-  dom.nextQuestion.addEventListener("click", chooseNext);
+  dom.nextQuestion.addEventListener("click", () => chooseNext({ scrollToTop: true }));
   dom.bookmark.addEventListener("click", toggleBookmark);
   dom.resetCurrent.addEventListener("click", resetCurrent);
   dom.resetAll.addEventListener("click", resetAll);
   dom.submitAnswer.addEventListener("click", submitAnswer);
   dom.showAnswer.addEventListener("click", showAnswer);
   dom.summaryToggle.addEventListener("click", toggleSummary);
-  dom.mobileNextQuestion.addEventListener("click", chooseNext);
+  dom.mobileNextQuestion.addEventListener("click", () => chooseNext({ scrollToTop: true }));
   dom.mobileGlossaryOpen.addEventListener("click", openGlossary);
   dom.mobileBookmark.addEventListener("click", toggleBookmark);
   dom.mobileSubmitAnswer.addEventListener("click", submitAnswer);
