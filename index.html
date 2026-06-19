@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#0176d3">
     <title>Salesforce Admin Practice Loop</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=10">
-    <link rel="icon" href="./icon.svg?v=10" type="image/svg+xml">
-    <link rel="stylesheet" href="./styles.css?v=10">
+    <link rel="manifest" href="./manifest.webmanifest?v=12">
+    <link rel="icon" href="./icon.svg?v=12" type="image/svg+xml">
+    <link rel="stylesheet" href="./styles.css?v=12">
   </head>
   <body>
     <main class="app-shell">
@@ -43,6 +43,15 @@
 
       <section class="workspace">
         <aside class="panel controls" aria-label="出題設定">
+          <section class="control-section">
+            <p class="section-label">問題ソース</p>
+            <div class="source-segmented" role="tablist" aria-label="問題ソース">
+              <button class="source-segment active" type="button" data-source-filter="all">すべて</button>
+              <button class="source-segment" type="button" data-source-filter="tyson">タイソン</button>
+              <button class="source-segment" type="button" data-source-filter="jpn">JPN</button>
+            </div>
+          </section>
+
           <section class="control-section">
             <p class="section-label">出題モード</p>
             <div class="segmented" role="tablist" aria-label="出題範囲">
@@ -231,12 +240,13 @@
       </section>
     </div>
 
-    <script src="./data/questions.js?v=10"></script>
-    <script src="./data/additional-questions.js?v=10"></script>
-    <script src="./data/glossary.js?v=10"></script>
-    <script src="./data/implementation-guides.js?v=10"></script>
-    <script src="./data/implementation-guides-extra.js?v=10"></script>
-    <script src="./app.js?v=10"></script>
-    <script src="./app-extension.js?v=10"></script>
+    <script src="./data/questions.js?v=12"></script>
+    <script src="./data/additional-questions.js?v=12"></script>
+    <script src="./data/jpn-questions.js?v=12"></script>
+    <script src="./data/glossary.js?v=12"></script>
+    <script src="./data/implementation-guides.js?v=12"></script>
+    <script src="./data/implementation-guides-extra.js?v=12"></script>
+    <script src="./app.js?v=12"></script>
+    <script src="./app-extension.js?v=12"></script>
   </body>
 </html>
