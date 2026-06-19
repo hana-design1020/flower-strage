@@ -233,13 +233,22 @@ h1 {
   margin-bottom: 9px;
 }
 
-.segmented {
+.segmented,
+.source-segmented {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
   gap: 6px;
 }
 
+.segmented {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.source-segmented {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .segment,
+.source-segment,
 .tool-button,
 .action-button,
 .mobile-command {
@@ -251,19 +260,22 @@ h1 {
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
-.segment {
+.segment,
+.source-segment {
   min-height: 40px;
   padding: 6px 10px;
 }
 
 .segment:hover,
+.source-segment:hover,
 .tool-button:hover,
 .action-button:hover,
 .mobile-command:hover {
   border-color: var(--primary);
 }
 
-.segment.active {
+.segment.active,
+.source-segment.active {
   border-color: var(--primary);
   background: var(--primary);
   color: #fff;
@@ -855,21 +867,38 @@ h1 {
 
 .implementation-section ol {
   display: grid;
-  gap: 8px;
+  gap: 11px;
   margin: 0;
   padding-left: 1.5rem;
 }
 
 .implementation-section li {
-  padding-left: 3px;
+  border-bottom: 1px solid #c7e0ea;
+  padding: 0 0 11px 5px;
   color: #354f5f;
   font-size: 0.88rem;
   line-height: 1.7;
 }
 
+.implementation-section li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
 .implementation-section li::marker {
   color: var(--primary);
   font-weight: 900;
+}
+
+.implementation-step-title {
+  display: block;
+  margin-bottom: 2px;
+  color: #16394d;
+  font-size: 0.88rem;
+}
+
+.implementation-section li p {
+  margin: 0;
 }
 
 .implementation-note {
