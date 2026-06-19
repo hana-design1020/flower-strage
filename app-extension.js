@@ -1,5 +1,5 @@
 (function () {
-  const oldTotal = 181;
+  const oldTotals = new Set([181, 201]);
 
   function injectStyles() {
     if (document.querySelector("#handsOnExtensionStyles")) return;
@@ -37,7 +37,7 @@
 
     const max = Number(rangeEnd.max || 0);
     const value = Number(rangeEnd.value || 0);
-    if (max > oldTotal && value === oldTotal) {
+    if (max > value && oldTotals.has(value)) {
       rangeEnd.value = String(max);
       rangeEnd.dispatchEvent(new Event("change", { bubbles: true }));
     }
