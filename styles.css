@@ -1,6 +1,6 @@
 :root {
   color-scheme: light;
-  --bg: #edf8fb;
+  --bg: #f6fbff;
   --surface: #ffffff;
   --surface-muted: #f6f8fa;
   --text: #17202a;
@@ -32,10 +32,11 @@ body {
   margin: 0;
   background-color: var(--bg);
   background-image:
-    linear-gradient(rgba(1, 118, 211, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(1, 118, 211, 0.035) 1px, transparent 1px),
-    linear-gradient(180deg, #dceff8 0, #edf8fb 280px, #f2f8f8 100%);
-  background-size: 42px 42px, 42px 42px, 100% 100%;
+    linear-gradient(118deg, rgba(1, 118, 211, 0.1) 0%, rgba(1, 118, 211, 0.038) 28%, transparent 52%),
+    linear-gradient(242deg, rgba(0, 166, 206, 0.075) 0%, rgba(0, 166, 206, 0.024) 34%, transparent 58%),
+    linear-gradient(180deg, rgba(255, 244, 214, 0.36) 0%, transparent 220px),
+    linear-gradient(180deg, #ffffff 0%, #f3fbff 32%, #eef8fd 67%, #fbfdff 100%);
+  background-size: 100% 100%;
   background-attachment: fixed;
   color: var(--text);
   font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
